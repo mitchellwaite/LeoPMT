@@ -1,37 +1,13 @@
 #include <Key.h>
 #include <Keypad.h>
-
-/*
-  Software serial multple serial test
-
- Receives from the hardware serial, sends to software serial.
- Receives from software serial, sends to hardware serial.
-
- The circuit:
- * RX is digital pin 10 (connect to TX of other device)
- * TX is digital pin 11 (connect to RX of other device)
-
- Note:
- Not all pins on the Mega and Mega 2560 support change interrupts,
- so only the following can be used for RX:
- 10, 11, 12, 13, 50, 51, 52, 53, 62, 63, 64, 65, 66, 67, 68, 69
-
- Not all pins on the Leonardo and Micro support change interrupts,
- so only the following can be used for RX:
- 8, 9, 10, 11, 14 (MISO), 15 (SCK), 16 (MOSI).
-
- created back in the mists of time
- modified 25 May 2012
- by Tom Igoe
- based on Mikal Hart's example
-
- This example code is in the public domain.
-
- */
 #include <SoftwareSerial.h>
 #include "Keyboard.h"
 #include <SPI.h>
 #include <SD.h>
+#include <AES.h>
+#include <Crypto.h>
+#include <SHA256.h>
+#include <RNG.h>
 
 SoftwareSerial mySerial(A1, A0); // RX, TX
 
@@ -49,8 +25,6 @@ char numberKeys[ROWS][COLS] = {
 byte colPins[COLS] = {A2, A3, A4, A5}; //connect to the row pinouts of the keypad
 byte rowPins[ROWS] = {3, 4, 5, 6}; //connect to the column pinouts of the keypad
 Keypad numpad( makeKeymap(numberKeys), rowPins, colPins, sizeof(rowPins), sizeof(colPins) );
-
-
 
 File root;
 
@@ -73,66 +47,102 @@ void setup() {
 
   Keyboard.begin();
 
-  // set the data rate for the SoftwareSerial port
+  // Set up the LCD screen
   mySerial.begin(9600);
+  clearLCD();
+
+  if (SD.exists("mkey.dat")){
+    //get a passcode
+  } else{
+    //Set up a new encryption key
+  }
+  
+}
+
+void loop() { // run over and over
+  char keyBuf[32] = {'\0'};
+  char shaBuf[32] = {'\0'};
+  
+  getPasscode(keyBuf, 32, "Enter Passcode:",false);
+
+  clearLCD();
+  mySerial.println("Passcode was:");
+  mySerial.print(keyBuf);
+
+  calcSHA(keyBuf, 32, shaBuf, 32);
+
+  Serial.print("sha: ");
+  
+  for(int i = 0;i<32;i++)
+  {
+    Serial.print(shaBuf[i]);
+  }
+  
+  delay(2000);
+}
+
+void getPasscode(char * keyBuffer, size_t bufSz, String message, bool showChars)
+{
+  int keyCount = 0;
+  
+  clearLCD();
+
+  mySerial.println(message);
+
+  while(true)
+  {
+    char key = numpad.getKey();
+   
+    if (key){
+
+      if (key == '*' || key == '#'){
+        break;
+      }
+      else if(key >= 48 && key <= 57)
+      {
+        if(keyCount < 15)
+        {
+          if(showChars)
+          {
+            mySerial.print(key);
+          }
+          else
+          {
+            mySerial.print('*');
+          }
+        }
+
+        if(keyCount < bufSz)
+        {
+          keyBuffer[keyCount++] = key;
+        }
+      }
+    }
+  }
+
+  keyBuffer[bufSz] = '\0';
+   
+  return;
+}
+
+void clearLCD()
+{
   mySerial.write(0xFE);
   mySerial.write(0x58);
   mySerial.write(0xFE);
   mySerial.write(0x48);
 }
 
-void loop() { // run over and over
-  char key = numpad.getKey();
-
-  if (key){
-    mySerial.print(key);
-    Keyboard.print(key);
-
-    if (key == 'D'){
-      listSD();
-    }
-  }
-}
-
-
-void listSD()
+void calcSHA(void* inBuf, int bufSz, void* outBuf, int outBufSz)
 {
-
-
-  root = SD.open("/");
-
-  printDirectory(root, 0);
-
-  Keyboard.println("done!");
+  SHA256 sha256;
+  sha256.reset();
+  sha256.update(inBuf, bufSz);
+  sha256.finalize(outBuf, outBufSz);
 }
 
-
-void printDirectory(File dir, int numTabs) {
-  // Begin at the start of the directory
-  dir.rewindDirectory();
-
-  while(true) {
-     File entry =  dir.openNextFile();
-     if (! entry) {
-       // no more files
-       //Serial.println("**nomorefiles**");
-       break;
-     }
-     for (uint8_t i=0; i<numTabs; i++) {
-       Keyboard.print('\t');   // we'll have a nice indentation
-     }
-     // Print the 8.3 name
-     Keyboard.print(entry.name());
-     // Recurse for directories, otherwise print the file size
-     if (entry.isDirectory()) {
-       Keyboard.println("/");
-       printDirectory(entry, numTabs+1);
-     } else {
-       // files have sizes, directories do not
-       Keyboard.print("\t\t");
-       Keyboard.print(entry.size(), DEC);
-       Keyboard.print('\n');
-     }
-     entry.close();
-   }
+void getRNG()
+{
+  
 }
+
