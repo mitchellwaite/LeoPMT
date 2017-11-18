@@ -7,6 +7,7 @@
 
 #include "libpmt.h"
 
+#define PSW_LEN 10
 
 SoftwareSerial mySerial(A1, A0); // RX, TX
 
@@ -167,6 +168,9 @@ void loop() { // run over and over
       case 1:
         makeNewPassword();
         break;
+      case 2:
+        changePassword();
+        break;
       case 3:
         deletePassword();
         break;
@@ -232,6 +236,7 @@ void readPasswords()
   else
   {
     clearLCD(mySerial);
+    mySerial.print("Pswrd: ");
     mySerial.println(pswFile.name());
     pswFile.read(filePsw, max(pswFile.available(),32));
     mySerial.print("^(*) X(#) >(D)"); 
@@ -267,6 +272,7 @@ void readPasswords()
       }
 
       clearLCD(mySerial);
+      mySerial.print("Pswrd: ");
       mySerial.println(pswFile.name());
       pswFile.read(filePsw, max(pswFile.available(),32));
       mySerial.print("^(*) X(#) >(D)"); 
@@ -284,7 +290,7 @@ void readPasswords()
 void makeNewPassword()
 {
   char passName[9] = {'\0'};
-  char actualPass[11] = {'\0'};
+  char actualPass[PSW_LEN + 1] = {'\0'};
   String dest;
 
   dest.concat("/PSW/");
@@ -307,7 +313,7 @@ void makeNewPassword()
   mySerial.print(passName);
   delay(2000);
 
-  for(int i = 0;i<10;i++)
+  for(int i = 0;i<PSW_LEN;i++)
   {
     actualPass[i] = random(33,126);
   }
@@ -325,11 +331,133 @@ void makeNewPassword()
   myFile = SD.open(dest.c_str(), FILE_WRITE);
   myFile.write(actualPass);
   myFile.close();
+
+          
+  clearLCDGreen(mySerial);
+  mySerial.println("Password");
+  mySerial.print("added.");
+  delay(1500);
+  
 }
 
 //Option 3 - Change Password
 void changePassword()
 {
+  char key = '\0';
+  char actualPass[PSW_LEN + 1] = {'\0'};
+  
+  myFile = SD.open("/PSW");
+
+  File pswFile = myFile.openNextFile();
+
+  if(!pswFile)
+  {
+    //No files are present. Throw an error
+    clearLCDRed(mySerial);
+    mySerial.println("Pswrd file");
+    mySerial.print("is empty!");
+    delay(1500);
+
+    myFile.close();
+    return;
+  }
+  else
+  {
+    clearLCD(mySerial);
+    mySerial.print("Chg: ");
+    mySerial.println(pswFile.name());
+    mySerial.print("^(*) X(#) >(D)"); 
+  }
+
+  while(true)
+  {
+        
+    key = numpad.getKey();
+
+    while(!key)
+    {
+      key = numpad.getKey();
+    }
+
+    if(key == '#')
+    {
+        clearLCDRed(mySerial);
+        
+        mySerial.println("Change Pswrd!");
+        mySerial.print("# Cont, * Back");
+
+        char subKey = numpad.getKey();
+
+        while(!subKey)
+        {
+          subKey = numpad.getKey();
+        }
+
+        if(subKey == '#')
+        {
+          String fdel;
+          fdel.concat("/PSW/");
+          fdel.concat(pswFile.name());
+      
+          pswFile.close();
+          myFile.close();
+          SD.remove(fdel.c_str());
+
+          //Make new file here!
+          for(int i = 0;i<PSW_LEN;i++)
+          {
+            actualPass[i] = random(33,126);
+          }
+
+          clearLCDRed(mySerial);
+
+          mySerial.print("N: ");
+          mySerial.println("Change");
+
+          mySerial.print("P: ");
+          mySerial.print(actualPass);
+
+          delay(5000);
+
+          myFile = SD.open(fdel.c_str(), FILE_WRITE);
+          myFile.write(actualPass);
+          myFile.close();
+
+          
+          clearLCDRed(mySerial);
+          mySerial.println("Password");
+          mySerial.print("changed.");
+          delay(1500);
+
+          break;
+        }
+    }
+    else if(key == '*')
+    {
+      break;
+    }
+    else if(key == 'D')
+    {
+      //NEEEEEEEEXT
+      pswFile = myFile.openNextFile();
+
+      if(!pswFile)
+      {
+        myFile.rewindDirectory();
+        pswFile = myFile.openNextFile();
+      }
+
+      clearLCD(mySerial);
+      mySerial.print("Chg: ");
+      mySerial.println(pswFile.name());
+      mySerial.print("^(*) X(#) >(D)"); 
+      
+    }
+    
+  }
+  
+  pswFile.close();
+  myFile.close();
   
 }
 
@@ -396,8 +524,11 @@ void deletePassword()
           pswFile.close();
           myFile.close();
           SD.remove(fdel.c_str());
-
-
+      
+          clearLCDRed(mySerial);
+          mySerial.println("Password");
+          mySerial.print("deleted.");
+          delay(1500);
           
           break;
         }
