@@ -5,6 +5,8 @@
 #include <SPI.h>
 #include <SD.h>
 
+#include "libpmt.h"
+
 
 SoftwareSerial mySerial(A1, A0); // RX, TX
 
@@ -45,7 +47,7 @@ void setup() {
 
   // Set up the LCD screen
   mySerial.begin(9600);
-  clearLCD();
+  clearLCD(mySerial);
 
   char passcodeBuf[33] = {'\0'};
 
@@ -78,7 +80,7 @@ void setup() {
 
   while(true)
   {
-    getPasscode(checkPasscodeBuf, 33, "Enter Passcode:", false);
+    getPasscode(mySerial, numpad, checkPasscodeBuf, 33, "Enter Passcode:", false);
     if(strcmp(checkPasscodeBuf, passcodeBuf))
     {
       Serial.print("entered code: ");
@@ -95,13 +97,13 @@ void setup() {
       }
       Serial.println("");
       
-      clearLCDRed();
+      clearLCDRed(mySerial);
       mySerial.println("Wrong Passcode.");
       delay(1500);
     }
     else
     {
-      clearLCDGreen();
+      clearLCDGreen(mySerial);
       mySerial.println("Success.");
       delay(1500);
       break;
@@ -114,7 +116,7 @@ void loop() { // run over and over
   static int menuIdx = 0;
   char passName[9] = {'\0'};
   
-  clearLCD();
+  clearLCD(mySerial);
 
   switch(menuIdx)
   {
@@ -165,8 +167,14 @@ void loop() { // run over and over
       case 1:
         makeNewPassword();
         break;
+      case 3:
+        deletePassword();
+        break;
       case 4:
         changePasscode();
+        break;
+      case 5:
+        cleanWipe();
         break;
       default:
         notImplemented();
@@ -181,31 +189,25 @@ void loop() { // run over and over
 
 void notImplemented()
 {
-  clearLCDRed();
+  clearLCDRed(mySerial);
   mySerial.print("not implemented");
   delay(1000);
 }
 
-void passwordMenu(){
-  return;
-}
 
-void changePasscode(){
-  SD.remove("mkey.dat");
-  checkNewPasscode();
-}
 
 void checkNewPasscode(){
   if (!SD.exists("mkey.dat")){
     //Set up a new encryption key
     byte newPasscodeBuf[33] = {'\0'};
-    getPasscode(newPasscodeBuf, 33, "New Passcode:",false);
+    getPasscode(mySerial, numpad, newPasscodeBuf, 33, "New Passcode:",false);
     myFile = SD.open("mkey.dat", FILE_WRITE);
     myFile.write(newPasscodeBuf, 33);
     myFile.close();
   }
 }
 
+//Option 1 - Reads data files and can write password to emulated keyboard
 void readPasswords()
 {
   char key = '\0';
@@ -219,7 +221,7 @@ void readPasswords()
   if(!pswFile)
   {
     //No files are present. Throw an error
-    clearLCDRed();
+    clearLCDRed(mySerial);
     mySerial.println("Pswrd file");
     mySerial.print("is empty!");
     delay(1500);
@@ -229,7 +231,7 @@ void readPasswords()
   }
   else
   {
-    clearLCD();
+    clearLCD(mySerial);
     mySerial.println(pswFile.name());
     pswFile.read(filePsw, max(pswFile.available(),32));
     mySerial.print("^(*) X(#) >(D)"); 
@@ -264,7 +266,7 @@ void readPasswords()
         pswFile = myFile.openNextFile();
       }
 
-      clearLCD();
+      clearLCD(mySerial);
       mySerial.println(pswFile.name());
       pswFile.read(filePsw, max(pswFile.available(),32));
       mySerial.print("^(*) X(#) >(D)"); 
@@ -278,35 +280,29 @@ void readPasswords()
   
 }
 
+//Option 2 - generates new password files
 void makeNewPassword()
 {
   char passName[9] = {'\0'};
   char actualPass[11] = {'\0'};
-  char * actualDest = NULL;
-  
-  bool continueLoop = false;
-  
-  do
-  {
-    char * dest = "/PSW/";
-    getCodeT9(passName,9,"Enter Name:");
-    strcat(dest,passName);
-    
-    if(SD.exists(dest))
-    {
-      continueLoop = true;
-      clearLCDRed();
-      mySerial.println("Pswrd exists!");
-      mySerial.print("Try Again.");
-      delay(1500);
-    }
-    else
-    {
-      actualDest = dest;
-    }
-  }while(continueLoop);
+  String dest;
 
-  clearLCDGreen();
+  dest.concat("/PSW/");
+  
+  getCodeT9(mySerial, numpad, passName,9,"Enter Name:");
+
+  dest.concat(passName);
+  
+  if(SD.exists(dest.c_str()))
+  {
+    clearLCDRed(mySerial);
+    mySerial.println("Pswrd exists!");
+    mySerial.print("Try Again.");
+    delay(2500);
+    return;
+  }
+
+  clearLCDGreen(mySerial);
   mySerial.println("Your Name:");
   mySerial.print(passName);
   delay(2000);
@@ -316,7 +312,7 @@ void makeNewPassword()
     actualPass[i] = random(33,126);
   }
 
-  clearLCDRed();
+  clearLCDRed(mySerial);
 
   mySerial.print("N: ");
   mySerial.println(passName);
@@ -326,327 +322,147 @@ void makeNewPassword()
 
   delay(5000);
 
-  myFile = SD.open(actualDest, FILE_WRITE);
+  myFile = SD.open(dest.c_str(), FILE_WRITE);
   myFile.write(actualPass);
   myFile.close();
 }
 
-void getCodeT9(char * keyBuffer, size_t bufSz, String message)
+//Option 3 - Change Password
+void changePassword()
 {
-  int keyCount = 0;
-  char currentChar = ' ';
-  char currentKey = ' ';
+  
+}
+
+//Option 4 - Delete Password
+void deletePassword()
+{
+  char key = '\0';
+  //char * fileNameToRemove;
+  char filePsw[32] = {'\0'};
+  
+  myFile = SD.open("/PSW");
+
+  File pswFile = myFile.openNextFile();
+
+  if(!pswFile)
+  {
+    //No files are present. Throw an error
+    clearLCDRed(mySerial);
+    mySerial.println("Pswrd file");
+    mySerial.print("is empty!");
+    delay(1500);
+
+    myFile.close();
+    return;
+  }
+  else
+  {
+    clearLCDRed(mySerial);
+    mySerial.print("Del: ");
+    mySerial.println(pswFile.name());
+    mySerial.print("^(*) X(#) >(D)"); 
+  }
 
   while(true)
   {
-    
-    clearLCD();
-    mySerial.println(message);
-
-    for(int i = 0;i<keyCount;i++)
-    {
-      mySerial.print(keyBuffer[i]);
-    }
-
-    mySerial.print(currentChar);
-    
-    char key = numpad.getKey();
+        
+    key = numpad.getKey();
 
     while(!key)
     {
       key = numpad.getKey();
     }
-  
-    if (key == '#'){
-      //Commit a waiting character
-      if(currentChar != ' ')
-      {
-        keyBuffer[keyCount] = currentChar;
-        currentChar = ' ';
-        currentKey = ' ';
-        keyCount = keyCount + 1; 
-      }
+
+    if(key == '#')
+    {
+        clearLCDRed(mySerial);
+        
+        mySerial.println("Destructive!");
+        mySerial.print("# Cont, * Back");
+
+        char subKey = numpad.getKey();
+
+        while(!subKey)
+        {
+          subKey = numpad.getKey();
+        }
+
+        if(subKey == '#')
+        {
+          String fdel;
+          fdel.concat("/PSW/");
+          fdel.concat(pswFile.name());
       
-      if(keyCount < bufSz)
-      {
-        keyBuffer[keyCount] = '\0';
-      }
-      else
-      {
-        keyBuffer[bufSz - 1] = '\0';
-      }
+          pswFile.close();
+          myFile.close();
+          SD.remove(fdel.c_str());
+
+
+          
+          break;
+        }
+    }
+    else if(key == '*')
+    {
       break;
     }
     else if(key == 'D')
     {
-      //backspace
-      if(keyCount > 0)
+      //NEEEEEEEEXT
+      pswFile = myFile.openNextFile();
+
+      if(!pswFile)
       {
-        keyBuffer[keyCount] = '\0';
-        currentChar = ' ';
-        currentKey = ' ';
-        keyCount = keyCount - 1;
+        myFile.rewindDirectory();
+        pswFile = myFile.openNextFile();
       }
-    }
-    else if(key == '*')
-    {
-      if(currentChar != ' ')
-      {
-        keyBuffer[keyCount] = currentChar;
-        currentChar = ' ';
-        currentKey = ' ';
-        keyCount = keyCount + 1; 
-      }
-    }
-    else if(key >= 48 && key <= 57)
-    {
-      if(key != currentKey)
-      {
-        currentKey = key;
-        currentChar = key;
-      }
-      else
-      {
-        switch(currentKey)
-        {
-          case '2':
-            if (currentChar == '2')
-            {
-              currentChar = 'A';
-            }
-            else if(currentChar == 'A')
-            {
-              currentChar = 'B';
-            }
-            else if(currentChar == 'B')
-            {
-              currentChar = 'C';
-            }
-            else if(currentChar == 'C')
-            {
-              currentChar = '2';
-            }
-          case '3':
-            if (currentChar == '3')
-            {
-              currentChar = 'D';
-            }
-            else if(currentChar == 'D')
-            {
-              currentChar = 'E';
-            }
-            else if(currentChar == 'E')
-            {
-              currentChar = 'F';
-            }
-            else if(currentChar == 'F')
-            {
-              currentChar = '3';
-            }
-          case '4':
-            if (currentChar == '4')
-            {
-              currentChar = 'G';
-            }
-            else if(currentChar == 'G')
-            {
-              currentChar = 'H';
-            }
-            else if(currentChar == 'H')
-            {
-              currentChar = 'I';
-            }
-            else if(currentChar == 'I')
-            {
-              currentChar = '4';
-            }
-            break;
-          case '5':
-            if (currentChar == '5')
-            {
-              currentChar = 'J';
-            }
-            else if(currentChar == 'J')
-            {
-              currentChar = 'K';
-            }
-            else if(currentChar == 'K')
-            {
-              currentChar = 'L';
-            }
-            else if(currentChar == 'L')
-            {
-              currentChar = '5';
-            }
-            break;
-          case '6':
-            if (currentChar == '6')
-            {
-              currentChar = 'M';
-            }
-            else if(currentChar == 'M')
-            {
-              currentChar = 'N';
-            }
-            else if(currentChar == 'N')
-            {
-              currentChar = 'O';
-            }
-            else if(currentChar == 'O')
-            {
-              currentChar = '6';
-            }
-            break;
-          case '7':
-            if (currentChar == '7')
-            {
-              currentChar = 'P';
-            }
-            else if(currentChar == 'P')
-            {
-              currentChar = 'R';
-            }
-            else if(currentChar == 'R')
-            {
-              currentChar = 'S';
-            }
-            else if(currentChar == 'S')
-            {
-              currentChar = '7';
-            }
-            break;
-          case '8':
-            if (currentChar == '8')
-            {
-              currentChar = 'T';
-            }
-            else if(currentChar == 'T')
-            {
-              currentChar = 'U';
-            }
-            else if(currentChar == 'U')
-            {
-              currentChar = 'V';
-            }
-            else if(currentChar == 'V')
-            {
-              currentChar = '8';
-            }
-            break;
-          case '9':
-            if (currentChar == '9')
-            {
-              currentChar = 'W';
-            }
-            else if(currentChar == 'W')
-            {
-              currentChar = 'X';
-            }
-            else if(currentChar == 'X')
-            {
-              currentChar = 'Y';
-            }
-            else if(currentChar == 'Y')
-            {
-              currentChar = '9';
-            }
-            break;
-        }
-      }
+
+      clearLCDRed(mySerial);
+      mySerial.print("Del: ");
+      mySerial.println(pswFile.name());
+      mySerial.print("^(*) X(#) >(D)"); 
+      
     }
     
   }
-   
-  return;
-}
-
-void getPasscode(char * keyBuffer, size_t bufSz, String message, bool showChars)
-{
-  int keyCount = 0;
   
-  clearLCD();
+  pswFile.close();
+  myFile.close();
+  
+}
 
-  mySerial.println(message);
+//Option 5 - Change master passcode
+void changePasscode(){
+  SD.remove("mkey.dat");
+  checkNewPasscode();
+}
 
-  while(true)
+//Option 6 - Clean Wipe
+void cleanWipe() {
+  clearLCDRed(mySerial);
+  mySerial.println("Destructive!");
+  mySerial.print("# Cont, * Back");
+
+  char key = numpad.getKey();
+
+  while(!key)
   {
-    char key = numpad.getKey();
-   
-    if (key){
-
-      if (key == '*' || key == '#'){
-        if(keyCount < bufSz)
-        {
-          keyBuffer[keyCount] = '\0';
-        }
-        else
-        {
-          keyBuffer[bufSz - 1] = '\0';
-        }
-        break;
-      }
-      else if(key >= 48 && key <= 57)
-      {
-        if(keyCount < 15)
-        {
-          if(showChars)
-          {
-            mySerial.print(key);
-          }
-          else
-          {
-            mySerial.print('*');
-          }
-        }
-
-        if(keyCount < bufSz)
-        {
-          keyBuffer[keyCount] = key;
-          keyCount++;
-        }
-      }
-    }
+    key = numpad.getKey();
   }
-   
-  return;
+
+  if(key == '#')
+  {
+    //Delete all contents of PSW here...
+
+    //
+    SD.rmdir("/PSW");
+    SD.remove("mkey.dat");
+
+    clearLCDRed(mySerial);
+    mySerial.println("Cleaned! Power");
+    mySerial.print("cycle to cont.");
+
+    while(true){}//loop until power is turned off and on
+  }
 }
 
-void clearLCD()
-{
-  mySerial.write(0xFE);
-  mySerial.write(0x58);
-  mySerial.write(0xFE);
-  mySerial.write(0x48);
-
-  mySerial.write(0xFE);
-  mySerial.write(0xD0);
-
-  //Colours
-  mySerial.write(0xFF);
-  mySerial.write(0xFF);
-  mySerial.write(0xFF); 
-}
-
-void clearLCDGreen(){
-  clearLCD();
-
-  mySerial.write(0xFE);
-  mySerial.write(0xD0);
-
-  //Colours
-  mySerial.write((byte)0x00);
-  mySerial.write(0xFF);
-  mySerial.write((byte)0x00); 
-}
-
-void clearLCDRed(){
-  clearLCD();
-
-  mySerial.write(0xFE);
-  mySerial.write(0xD0);
-
-  //Colours
-  mySerial.write(0xFF);
-  mySerial.write((byte)0x0);
-  mySerial.write((byte)0x0); 
-}
