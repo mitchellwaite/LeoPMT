@@ -15,7 +15,7 @@ Since we're stuck with a character LCD, it's a bit difficult to display the acti
 - Advance Item = D Key
 - Select Item = Pound Key
 
-### Passcode Entry Screen
+### Number/Passcode Entry Screen
 
 - Number Entry = 0-9
 - Backspace = D Key
@@ -78,7 +78,11 @@ Ensure you enter the old password in a change password form on your computer, or
 
 Guides the user through the change of the main device passcode. Use the number pad (0-9) to enter an access code, then hit pound for confirmation.
 
-### 6) Clean Wipe
+### 6) Chg Pswd Len
+
+Allows the user to change the length of the password generated. This value is stored in ROM, so it persists across power cycles and SD cards.
+
+### 7) Clean Wipe
 
 Deletes all information from the SD Card. This is a destructive operation, so confirmation will be required. After contents have been deleted, you must power cycle LeoPMT.
 

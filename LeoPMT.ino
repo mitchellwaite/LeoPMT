@@ -4,10 +4,10 @@
 #include "Keyboard.h"
 #include <SPI.h>
 #include <SD.h>
-
+#include <EEPROM.h>
 #include "libpmt.h"
 
-#define PSW_LEN 10
+#define DF_PSW_LEN 25
 
 SoftwareSerial mySerial(A1, A0); // RX, TX
 
@@ -32,9 +32,14 @@ File myFile;
 //     Sparkfun SD shield: pin 8
 const int chipSelect = 10;
 
+int pswLen = DF_PSW_LEN;
+
 void setup() {
   // Open serial communications and wait for port to open:
   Serial.begin(9600);
+
+  //EEPROM STORAGE STUFF
+  pswLen = EEPROM.read(0);
 
   randomSeed(analogRead(A1));
   // On the Ethernet Shield, CS is pin 4. It's set as an output by default.
@@ -49,6 +54,11 @@ void setup() {
   // Set up the LCD screen
   mySerial.begin(9600);
   clearLCD(mySerial);
+
+  //DEBUG
+  mySerial.print("EEPROM VALUE: ");
+  mySerial.print(pswLen);
+  delay(2500);
 
   char passcodeBuf[33] = {'\0'};
 
@@ -127,19 +137,22 @@ void loop() { // run over and over
       mySerial.println("1) Passwords");
       break;
     case 1:
-      mySerial.println("2) New Pswrd");
+      mySerial.println("2) New Pswd");
       break;
     case 2:
-      mySerial.println("3) Chg Pswrd");
+      mySerial.println("3) Chg Pswd");
       break;
     case 3:
-      mySerial.println("4) Del Pswrd");
+      mySerial.println("4) Del Pswd");
       break;
     case 4:
       mySerial.println("5) Chg Passcode");
       break;
     case 5:
-      mySerial.println("6) Clean Wipe");
+      mySerial.println("6) Chg Pswd Len");
+      break;
+    case 6:
+      mySerial.println("7) Clean Wipe");
       break;
     default:
       mySerial.print(menuIdx);
@@ -180,6 +193,9 @@ void loop() { // run over and over
         changePasscode();
         break;
       case 5:
+        changePasswordLen();
+        break;
+      case 6:
         cleanWipe();
         break;
       default:
@@ -292,7 +308,7 @@ void readPasswords()
 void makeNewPassword()
 {
   char passName[9] = {'\0'};
-  char actualPass[PSW_LEN + 1] = {'\0'};
+  char actualPass[DF_PSW_LEN + 1] = {'\0'};
   String dest;
 
   dest.concat("/PSW/");
@@ -315,7 +331,7 @@ void makeNewPassword()
   mySerial.print(passName);
   delay(2000);
 
-  for(int i = 0;i<PSW_LEN;i++)
+  for(int i = 0;i<DF_PSW_LEN;i++)
   {
     actualPass[i] = random(33,126);
   }
@@ -338,7 +354,7 @@ void makeNewPassword()
 void changePassword()
 {
   char key = '\0';
-  char actualPass[PSW_LEN + 1] = {'\0'};
+  char actualPass[DF_PSW_LEN + 1] = {'\0'};
   
   myFile = SD.open("/PSW");
 
@@ -398,7 +414,7 @@ void changePassword()
           SD.remove(fdel.c_str());
 
           //Make new file here!
-          for(int i = 0;i<PSW_LEN;i++)
+          for(int i = 0;i<DF_PSW_LEN;i++)
           {
             actualPass[i] = random(33,126);
           }
@@ -559,7 +575,33 @@ void changePasscode(){
   delay(1500);
 }
 
-//Option 6 - Clean Wipe
+//Option 6 - Change generated password length
+void changePasswordLen(){
+  char numBuf[3] = {'\0'};
+  String inString;
+  int lengthInt = DF_PSW_LEN;
+  
+  getPasscode(mySerial,numpad,numBuf,3,"Enter pswd len:",true);
+
+  inString.concat(numBuf[0]);
+  inString.concat(numBuf[1]);
+
+  lengthInt = inString.toInt();
+
+  Serial.print("Size: ");
+  Serial.println(lengthInt);
+
+  pswLen = lengthInt;
+  EEPROM.update(0, lengthInt);
+
+  clearLCDGreen(mySerial);
+  mySerial.print("Pswd len changed");
+  mySerial.print("to ");
+  mySerial.print(lengthInt);
+  delay(1500);
+}
+
+//Option 7 - Clean Wipe
 void cleanWipe() {
   clearLCDRed(mySerial);
   mySerial.println("Destructive!");
