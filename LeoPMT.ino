@@ -55,11 +55,6 @@ void setup() {
   mySerial.begin(9600);
   clearLCD(mySerial);
 
-  //DEBUG
-  mySerial.print("EEPROM VALUE: ");
-  mySerial.print(pswLen);
-  delay(2500);
-
   char passcodeBuf[33] = {'\0'};
 
   SD.mkdir("psw");
@@ -171,7 +166,7 @@ void loop() { // run over and over
   
   if(key == 'D')
   {
-    menuIdx = (menuIdx + 1) % 6;    
+    menuIdx = (menuIdx + 1) % 7;    
   }
   else if(key == '#')
   {

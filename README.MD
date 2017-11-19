@@ -6,6 +6,10 @@ LeoPMT is a device, based on an arduino leonardo (Atmega 32u4), that ~encrypts~ 
 
 This was designed and implemented at Hack Western, Nov 17-19 2017
 
+## Screenshots and Images
+
+[Click here for images of LeoPMT](https://github.com/mitchellwaite/LeoPMT/blob/master/IMAGES.MD)
+
 ## Controls
 
 Since we're stuck with a character LCD, it's a bit difficult to display the actions for each button. Here is a summary:
