@@ -591,6 +591,8 @@ void changePasswordLen(){
   Serial.print("Size: ");
   Serial.println(lengthInt);
 
+
+
   pswLen = lengthInt;
   EEPROM.update(0, lengthInt);
 
