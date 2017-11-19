@@ -2,7 +2,7 @@
 
 ## What is LeoPMT?
 
-LeoPMT is a device, based on an arduino leonardo (Atmega 32u4), that ~encrypts~ (nevermind, encryption isn't feasible on the Leo) and stores your passwords for later retreival. It emulates a USB HID keyboard, so it can automatically enter passwords for you. It is compatible not only with computers, but also Android and iOS devices with the proper adapter.
+LeoPMT is a device, based on an arduino leonardo (Atmega 32u4), that stores your passwords for later retreival. It emulates a USB HID keyboard, so it can automatically enter passwords for you. It is compatible not only with computers, but also Android and iOS devices with the proper adapter. This device is **completely isolated from the internet**, so there is no risk of it being remotely compromised.
 
 This was designed and implemented at Hack Western, Nov 17-19 2017
 
