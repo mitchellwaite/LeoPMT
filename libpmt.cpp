@@ -86,7 +86,7 @@ void getCodeT9(SoftwareSerial mySerial, Keypad numpad, char * keyBuffer, size_t 
       }
       break;
     }
-    else if(key == '*')
+    else if(key == 'D')
     {
       //backspace
       if(keyCount > 0)
@@ -105,7 +105,7 @@ void getCodeT9(SoftwareSerial mySerial, Keypad numpad, char * keyBuffer, size_t 
         }
       }
     }
-    else if(key == 'D')
+    else if(key == '*')
     {
       if(currentChar != ' ')
       {
@@ -287,17 +287,34 @@ void getPasscode(SoftwareSerial mySerial, Keypad numpad, char * keyBuffer, size_
 {
   int keyCount = 0;
   
-  clearLCD(mySerial);
-
-  mySerial.println(message);
+ 
 
   while(true)
   {
-    char key = numpad.getKey();
-   
-    if (key){
+      clearLCD(mySerial);
 
-      if (key == '*' || key == '#'){
+      mySerial.println(message);
+  
+      for(int i = 0;i < min(15,keyCount);i++)
+      {
+        if(showChars)
+        {
+          mySerial.print(keyBuffer[i]);
+        }
+        else
+        {
+          mySerial.print('*');
+        }
+      }
+      
+      char key = numpad.getKey();
+
+      while(!key)
+      {
+        key = numpad.getKey();
+      }
+    
+      if (key == '#'){
         if(keyCount < bufSz)
         {
           keyBuffer[keyCount] = '\0';
@@ -308,27 +325,23 @@ void getPasscode(SoftwareSerial mySerial, Keypad numpad, char * keyBuffer, size_
         }
         break;
       }
+      else if(key == 'D')
+      {
+        if(keyCount > 0)
+        {
+          keyBuffer[keyCount] = '\0';
+          keyCount = keyCount - 1;
+        }
+      }
       else if(key >= 48 && key <= 57)
       {
-        if(keyCount < 15)
-        {
-          if(showChars)
-          {
-            mySerial.print(key);
-          }
-          else
-          {
-            mySerial.print('*');
-          }
-        }
-
         if(keyCount < bufSz)
         {
           keyBuffer[keyCount] = key;
           keyCount++;
         }
       }
-    }
+    
   }
    
   return;

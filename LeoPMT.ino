@@ -56,6 +56,8 @@ void setup() {
 
   checkNewPasscode();
 
+  delay(250);
+
   myFile = SD.open("mkey.dat");
 
   int i = 0;
@@ -318,15 +320,7 @@ void makeNewPassword()
     actualPass[i] = random(33,126);
   }
 
-  clearLCDRed(mySerial);
-
-  mySerial.print("N: ");
-  mySerial.println(passName);
-
-  mySerial.print("P: ");
-  mySerial.print(actualPass);
-
-  delay(5000);
+  delay(1000);
 
   myFile = SD.open(dest.c_str(), FILE_WRITE);
   myFile.write(actualPass);
@@ -409,15 +403,7 @@ void changePassword()
             actualPass[i] = random(33,126);
           }
 
-          clearLCDRed(mySerial);
-
-          mySerial.print("N: ");
-          mySerial.println("Change");
-
-          mySerial.print("P: ");
-          mySerial.print(actualPass);
-
-          delay(5000);
+          delay(1000);
 
           myFile = SD.open(fdel.c_str(), FILE_WRITE);
           myFile.write(actualPass);
@@ -566,6 +552,11 @@ void deletePassword()
 void changePasscode(){
   SD.remove("mkey.dat");
   checkNewPasscode();
+
+  clearLCDGreen(mySerial);
+  mySerial.println("Passcode");
+  mySerial.print("changed.");
+  delay(1500);
 }
 
 //Option 6 - Clean Wipe
@@ -584,14 +575,35 @@ void cleanWipe() {
   if(key == '#')
   {
     //Delete all contents of PSW here...
+    myFile = SD.open("/PSW");
 
-    //
+    File pswFile = myFile.openNextFile();
+    
+    if(!pswFile)
+    {
+      myFile.close();
+    }
+    else
+    {
+      while(pswFile)
+      {
+          String fdel;
+          fdel.concat("/PSW/");
+          fdel.concat(pswFile.name());
+          pswFile = myFile.openNextFile();
+          SD.remove(fdel.c_str());
+      }
+    }
+
     SD.rmdir("/PSW");
     SD.remove("mkey.dat");
 
+    pswFile.close();
+    myFile.close();
+
     clearLCDRed(mySerial);
     mySerial.println("Cleaned! Power");
-    mySerial.print("cycle to cont.");
+    mySerial.print("cycle now.");
 
     while(true){}//loop until power is turned off and on
   }
