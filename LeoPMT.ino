@@ -136,7 +136,7 @@ void loop() { // run over and over
       mySerial.println("4) Del Pswrd");
       break;
     case 4:
-      mySerial.println("5) Chg Pscd");
+      mySerial.println("5) Chg Passcode");
       break;
     case 5:
       mySerial.println("6) Clean Wipe");
