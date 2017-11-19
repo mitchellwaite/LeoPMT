@@ -1,4 +1,4 @@
-# LeoPMT - (Arduino) Leonardo Password Manager Thingy
+# LeoPMT - (Arduino) Leonardo Password Manager Thing
 
 ## What is LeoPMT?
 
